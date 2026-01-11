@@ -9,6 +9,7 @@ const App = () => {
     // -------------------------------------------------------------------------
 
     const DEFAULT_CONFIG = {
+        STOCK_SYMBOL: 'SPY', // Default symbol
         CURRENT_PRICE: 340,   // Starting stock price
         TARGET_PRICE: 360,    // Target stock price for simulation
         RISK_FREE_RATE: 0.045, // 4.5% annual risk-free rate
@@ -26,6 +27,39 @@ const App = () => {
     const [groupedResults, setGroupedResults] = useState([]); // Changed from 'results' to 'groupedResults'
     const [chartData, setChartData] = useState([]);
     const [isIvCrush, setIsIvCrush] = useState(false);
+    const [isLoadingPrice, setIsLoadingPrice] = useState(false);
+
+    const fetchStockPrice = async (symbol) => {
+        if (!symbol) return;
+        setIsLoadingPrice(true);
+        try {
+            // Using api.allorigins.win to bypass CORS issues
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+            const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+            const data = await response.json();
+
+            if (data.contents) {
+                const yahooData = JSON.parse(data.contents);
+                if (yahooData.chart && yahooData.chart.result && yahooData.chart.result[0]) {
+                    const price = yahooData.chart.result[0].meta.regularMarketPrice;
+                    setConfig(prev => ({
+                        ...prev,
+                        CURRENT_PRICE: price,
+                        STOCK_SYMBOL: symbol
+                    }));
+                } else {
+                    alert('Symbol not found');
+                }
+            } else {
+                throw new Error('No data received from proxy');
+            }
+        } catch (error) {
+            console.error('Error fetching stock price:', error);
+            alert('Failed to fetch stock price. Please try again.');
+        } finally {
+            setIsLoadingPrice(false);
+        }
+    };
 
     // Ensure options are always processed and displayed in Strike Price order (Low to High: ITM -> OTM)
     const sortedOptions = useMemo(() => {
@@ -40,7 +74,10 @@ const App = () => {
 
     const handleConfigChange = (e) => {
         const { name, value } = e.target;
-        setConfig(prev => ({ ...prev, [name]: parseFloat(value) }));
+        setConfig(prev => ({
+            ...prev,
+            [name]: name === 'STOCK_SYMBOL' ? value.toUpperCase() : parseFloat(value)
+        }));
     };
 
     const handleOptionChange = (id, field, value) => {
@@ -59,6 +96,20 @@ const App = () => {
             iv
         ).toFixed(2);
     };
+
+    // Auto-update Option Ask Price when Stock Price (or other key params) changes
+    useEffect(() => {
+        setOptions(prevOptions => prevOptions.map(opt => {
+            const newAsk = blackScholesCall(
+                config.CURRENT_PRICE,
+                opt.strike,
+                config.DAYS_TO_EXPIRY / 365.0,
+                config.RISK_FREE_RATE,
+                opt.iv
+            );
+            return { ...opt, ask: parseFloat(newAsk.toFixed(2)) };
+        }));
+    }, [config.CURRENT_PRICE, config.RISK_FREE_RATE, config.DAYS_TO_EXPIRY]);
 
     // Main Simulation Effect
     useEffect(() => {
@@ -153,6 +204,35 @@ const App = () => {
                         </h2>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div className="form-group">
+                                <label className="form-label">Stock Symbol</label>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        name="STOCK_SYMBOL"
+                                        value={config.STOCK_SYMBOL}
+                                        onChange={handleConfigChange}
+                                        className="form-input"
+                                        style={{ textTransform: 'uppercase' }}
+                                    />
+                                    <button
+                                        onClick={() => fetchStockPrice(config.STOCK_SYMBOL)}
+                                        disabled={isLoadingPrice}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: 'var(--accent-primary)',
+                                            border: 'none',
+                                            borderRadius: '0.375rem',
+                                            color: 'white',
+                                            cursor: isLoadingPrice ? 'wait' : 'pointer',
+                                            opacity: isLoadingPrice ? 0.7 : 1,
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {isLoadingPrice ? '...' : 'Fetch'}
+                                    </button>
+                                </div>
+                            </div>
                             <div className="form-group">
                                 <label className="form-label">Current Price ($)</label>
                                 <input
