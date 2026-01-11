@@ -278,18 +278,22 @@ const App = () => {
                     </div>
 
                     {/* Option Contracts */}
-                    <div className="glass-panel">
+                    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
                         <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <DollarSign size={20} /> Option Contracts
                         </h3>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
                             {sortedOptions.map((opt) => (
                                 <div key={opt.id} style={{
                                     background: 'rgba(255, 255, 255, 0.03)',
                                     border: '1px solid var(--border-color)',
                                     borderRadius: '0.75rem',
-                                    padding: '1rem'
+                                    padding: '1rem',
+                                    flex: 1,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center'
                                 }}>
                                     <h4 style={{ margin: '0 0 1rem 0', color: 'var(--accent-secondary)', fontSize: '1rem' }}>{opt.type}</h4>
 
